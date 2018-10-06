@@ -48,16 +48,18 @@ func main() {
 		fmt.Println("second block")
 	}
 
-	// выход из цикла, находясь внутри switch 
+	// выход из цикла, находясь внутри switch
 
 Loop:
 	for key, val := range mapVal {
-		println("switch on loop", keym val)
+		println("switch on loop", key, val)
 		switch {
 		case key == "lastName":
 			break
 			println("dont pront this")
-		case key == "firstName" && val == "Vengerov"
+		case key == "firstName" && val == "Vengerov":
+			println("switch - break loop here")
+			break Loop
 		}
 	}
 }
