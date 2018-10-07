@@ -1,0 +1,13 @@
+
+-- bin
+-- pkg
+--- src
+    -- coursera
+        -- visibility
+            -- person
+                --  person.go
+                --  func.gp
+            -- main.go
+    -- github
+        --  eexample
+            -- eexample_code
