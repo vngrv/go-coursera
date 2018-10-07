@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-const testFullResult = `├───main.go (vary)
+const testFullResult = `├───main.go (1881b)
 ├───main_test.go (1318b)
 └───testdata
 	├───project

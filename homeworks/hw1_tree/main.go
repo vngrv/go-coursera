@@ -11,6 +11,7 @@ func printFileTree(out io.Writer, path string, depth int, openDirs map[int]bool,
 	file, _ := os.Open(path)
 	fInfo, _ := os.Lstat(path)
 	switch mode := fInfo.Mode(); {
+
 	case mode.IsDir():
 		{
 			fArray, _ := file.Readdir(0)
@@ -62,11 +63,17 @@ func printFileTree(out io.Writer, path string, depth int, openDirs map[int]bool,
 		}
 	case mode.IsRegular():
 		if printFiles {
+
 			_, relName := filepath.Split(file.Name())
+			size := fInfo.Size()
+			tabStr := ""
+
 			if depth == 1 && relName == "main.go" {
-				fmt.Fprint(out, "├───main.go (vary)\n")
+				fmt.Fprint(out, "├───")
+				fmt.Fprint(out, relName+" (")
+				fmt.Fprint(out, size)
+				fmt.Fprint(out, "b)\n")
 			} else {
-				tabStr := ""
 				for i := 0; i < depth-1; i++ {
 					if openDirs[i] {
 						tabStr += "│\t"
@@ -81,7 +88,6 @@ func printFileTree(out io.Writer, path string, depth int, openDirs map[int]bool,
 					fmt.Fprint(out, "├───")
 				}
 				fmt.Fprint(out, relName+" (")
-				size := fInfo.Size()
 				if size == 0 {
 					fmt.Fprint(out, "empty)\n")
 				} else {
