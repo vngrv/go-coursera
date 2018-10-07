@@ -38,6 +38,19 @@ func mulripleNamedReturn(ok bool) (rez int, err error) {
 }
 
 // не фиксированное количество параметров
-func sun(in ...int) (result int) {
+func sum(in ...int) (result int) {
 	fmt.Printf("in := %#v \n", in)
+	for _, val := range in {
+		result += val
+	}
+	return
+}
+
+func main() {
+	// fmt.Println(mulripleNamedReturn(true))
+	// return
+
+	nums := []int{1, 2, 3, 4}
+	fmt.Println(nums, sum(nums...))
+	return
 }
