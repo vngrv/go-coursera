@@ -3,113 +3,80 @@ package main
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
+	"sort"
 )
 
-func printFileTree(out io.Writer, path string, depth int, openDirs map[int]bool, printFiles bool, lastElem bool) {
-	file, _ := os.Open(path)
-	fInfo, _ := os.Lstat(path)
-	switch mode := fInfo.Mode(); {
-
-	case mode.IsDir():
-		{
-			fArray, _ := file.Readdir(0)
-			if depth > 0 {
-				_, dirName := filepath.Split(file.Name())
-				tabDirStr := ""
-				for i := 0; i < depth-1; i++ {
-					if openDirs[i] {
-						tabDirStr += "│\t"
-					} else {
-						tabDirStr += "\t"
-					}
-				}
-				fmt.Fprint(out, tabDirStr)
-				if lastElem {
-					fmt.Fprint(out, "└───")
-				} else {
-					fmt.Fprint(out, "├───")
-				}
-				fmt.Fprint(out, dirName+"\n")
-			}
-			openDirs[depth] = true
-			last := 0
-			if printFiles {
-				last = len(fArray) - 1
-			} else {
-				for i := range fArray {
-					name := fArray[i].Name()
-					newpath := path
-					newpath += "/" + name
-					fInArrInfo, _ := os.Lstat(newpath)
-					if fInArrInfo.IsDir() {
-						last = i
-					}
-				}
-			}
-			for i := range fArray {
-				name := fArray[i].Name()
-				if i == last {
-					lastElem = true
-					delete(openDirs, depth)
-				} else {
-					lastElem = false
-				}
-				newpath := path
-				newpath += "/" + name
-				printFileTree(out, newpath, depth+1, openDirs, printFiles, lastElem)
-			}
-		}
-	case mode.IsRegular():
-		if printFiles {
-
-			_, relName := filepath.Split(file.Name())
-			size := fInfo.Size()
-			tabStr := ""
-
-			if depth == 1 && relName == "main.go" {
-				fmt.Fprint(out, "├───")
-				fmt.Fprint(out, relName+" (")
-				fmt.Fprint(out, size)
-				fmt.Fprint(out, "b)\n")
-			} else {
-				for i := 0; i < depth-1; i++ {
-					if openDirs[i] {
-						tabStr += "│\t"
-					} else {
-						tabStr += "\t"
-					}
-				}
-				fmt.Fprint(out, tabStr)
-				if lastElem {
-					fmt.Fprint(out, "└───")
-				} else {
-					fmt.Fprint(out, "├───")
-				}
-				fmt.Fprint(out, relName+" (")
-				if size == 0 {
-					fmt.Fprint(out, "empty)\n")
-				} else {
-					fmt.Fprint(out, size)
-					fmt.Fprint(out, "b)\n")
-				}
-			}
-		}
-	}
+func dirTree(output io.Writer, currDir string, printFiles bool) error {
+	recursionPrintService("", output, currDir, printFiles)
+	return nil
 }
 
-func dirTree(out io.Writer, path string, printFiles bool) (err error) {
-	checkMainDir, err := os.Lstat(path)
+func recursionPrintService(prependingString string, output io.Writer, currDir string, printFiles bool) {
+	fileObj, err := os.Open(currDir)
+	defer fileObj.Close()
 	if err != nil {
-		return err
+		log.Fatalf("Could not open %s: %s", currDir, err.Error())
 	}
-	if !checkMainDir.Mode().IsDir() {
-		return nil
+	fileName := fileObj.Name()
+	files, err := ioutil.ReadDir(fileName)
+	if err != nil {
+		log.Fatalf("Could not read dir names in %s: %s", currDir, err.Error())
 	}
-	openDirs := map[int]bool{}
-	printFileTree(out, path, 0, openDirs, printFiles, false)
-	return nil
+	var filesMap map[string]os.FileInfo = map[string]os.FileInfo{}
+	var unSortedFilesNameArr []string = []string{}
+	for _, file := range files {
+		unSortedFilesNameArr = append(unSortedFilesNameArr, file.Name())
+		filesMap[file.Name()] = file
+	}
+	sort.Strings(unSortedFilesNameArr)
+	var sortedFilesArr []os.FileInfo = []os.FileInfo{}
+	for _, stringName := range unSortedFilesNameArr {
+		sortedFilesArr = append(sortedFilesArr, filesMap[stringName])
+	}
+	files = sortedFilesArr
+	var newFileList []os.FileInfo = []os.FileInfo{}
+	var length int
+	if !printFiles {
+		for _, file := range files {
+			if file.IsDir() {
+				newFileList = append(newFileList, file)
+			}
+		}
+		files = newFileList
+	}
+	length = len(files)
+	for i, file := range files {
+		if file.IsDir() {
+			var stringPrepender string
+			if length > i+1 {
+				fmt.Fprintf(output, prependingString+"├───"+"%s\n", file.Name())
+				stringPrepender = prependingString + "│\t"
+			} else {
+				fmt.Fprintf(output, prependingString+"└───"+"%s\n", file.Name())
+				stringPrepender = prependingString + "\t"
+			}
+			newDir := filepath.Join(currDir, file.Name())
+			recursionPrintService(stringPrepender, output, newDir, printFiles)
+		} else if printFiles {
+			if file.Size() > 0 {
+				if length > i+1 {
+					fmt.Fprintf(output, prependingString+"├───%s (%vb)\n", file.Name(), file.Size())
+				} else {
+					fmt.Fprintf(output, prependingString+"└───%s (%vb)\n", file.Name(), file.Size())
+				}
+			} else {
+				if length > i+1 {
+					fmt.Fprintf(output, prependingString+"├───%s (empty)\n", file.Name())
+				} else {
+					fmt.Fprintf(output, prependingString+"└───%s (empty)\n", file.Name())
+				}
+			}
+		}
+	}
 }
 
 func main() {
@@ -118,6 +85,7 @@ func main() {
 		panic("usage go run main.go . [-f]")
 	}
 	path := os.Args[1]
+
 	printFiles := len(os.Args) == 3 && os.Args[2] == "-f"
 	err := dirTree(out, path, printFiles)
 	if err != nil {
