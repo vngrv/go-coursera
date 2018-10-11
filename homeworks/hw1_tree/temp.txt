@@ -1,0 +1,80 @@
+package main
+
+import (
+	"fmt"
+	"io"
+	"io/ioutil"
+	"os"
+	"strconv"
+)
+
+func readDirectory(dirName string) []os.FileInfo {
+	files, err := ioutil.ReadDir(dirName)
+	if err != nil {
+		panic(err.Error())
+	}
+	return files
+}
+
+var branchLines []string
+
+func drawTree(output io.Writer, dirName string, includeFiles bool, branch int) error {
+	if branch+1 != len(branchLines) {
+		branchLines = append(branchLines, "")
+	}
+	data := readDirectory(dirName)
+	var sortedData []os.FileInfo
+	if !includeFiles {
+		for _, file := range data {
+			if file.IsDir() {
+				sortedData = append(sortedData, file)
+			}
+		}
+	} else {
+		sortedData = data
+	}
+	for index, file := range sortedData {
+		var indent, size string
+		if branch != 0 {
+			for i := 0; i < branch; i++ {
+				indent += branchLines[i] + "\t"
+			}
+		}
+		if !file.IsDir() {
+			if file.Size() == 0 {
+				size = " (empty)"
+			} else {
+				size = " (" + strconv.Itoa(int(file.Size())) + "b)"
+			}
+		}
+		if index == len(sortedData)-1 {
+			fmt.Fprintln(output, indent+"└───"+file.Name()+size)
+			branchLines[branch] = ""
+		} else {
+			fmt.Fprintln(output, indent+"├───"+file.Name()+size)
+			branchLines[branch] = "│"
+		}
+		if file.IsDir() {
+			drawTree(output, dirName+"/"+file.Name(), includeFiles, branch+1)
+		}
+	}
+	return nil
+}
+
+func dirTree(output io.Writer, path string, includeFiles bool) error {
+	return drawTree(output, path, includeFiles, 0)
+}
+
+func main() {
+	out := os.Stdout
+	if !(len(os.Args) == 2 || len(os.Args) == 3) {
+		panic("usage go run main.go . [-f]")
+	}
+	path := os.Args[1]
+	printFiles := len(os.Args) == 3 && os.Args[2] == "-f"
+	err := dirTree(out, path, printFiles)
+	if err != nil {
+		panic(err.Error())
+	}
+}
+
